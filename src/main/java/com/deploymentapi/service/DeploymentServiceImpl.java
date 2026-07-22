@@ -2,15 +2,15 @@ package com.deploymentapi.service;
 
 import com.deploymentapi.dto.DeploymentFilter;
 import com.deploymentapi.exception.DeploymentNotFoundException;
+import com.deploymentapi.exception.InvalidDeploymentIdException;
 import com.deploymentapi.exception.InvalidFilterException;
 import com.deploymentapi.model.Deployment;
 import com.deploymentapi.model.DeploymentStatus;
 import com.deploymentapi.repository.DeploymentRepository;
+import com.deploymentapi.util.DeploymentStatusParser;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class DeploymentServiceImpl implements DeploymentService {
@@ -21,56 +21,40 @@ public class DeploymentServiceImpl implements DeploymentService {
     }
 
     @Override
-    public List<Deployment> getAllDeployments() {
-        return repository.findAll();
-    }
-
-    @Override
-    public List<Deployment> getDeploymentsByFilter(DeploymentFilter filter) {
-        validateFilter(filter);
-
-        if (filter.getService() == null && filter.getStatus() == null) {
-            return repository.findAll();
-        }
-
-        return repository.findByFilter(filter);
+    public List<Deployment> getDeploymentsByFilter(String service, String status) {
+        DeploymentStatus parsedStatus = DeploymentStatusParser.parse(status);
+        String normalizedService = normalizeService(service);
+        return findByFilter(new DeploymentFilter(normalizedService, parsedStatus));
     }
 
     @Override
     public Deployment getDeploymentById(String id) {
         if (id == null || id.trim().isEmpty()) {
-            throw new InvalidFilterException("Deployment ID cannot be empty");
+            throw new InvalidDeploymentIdException("Deployment ID cannot be empty");
         }
 
         return repository.findById(id)
                 .orElseThrow(() -> new DeploymentNotFoundException(id));
     }
 
-    private void validateFilter(DeploymentFilter filter) {
-        if (filter == null) {
-            return;
+    private List<Deployment> findByFilter(DeploymentFilter filter) {
+        if (filter.service() == null && filter.status() == null) {
+            return repository.findAll();
         }
 
-        if (filter.getService() != null && filter.getService().trim().isEmpty()) {
-            throw new InvalidFilterException("Service name cannot be empty");
-        }
+        return repository.findByFilter(filter);
     }
 
-    public static DeploymentStatus parseStatus(String statusStr) {
-        if (statusStr == null) {
+    private String normalizeService(String service) {
+        if (service == null) {
             return null;
         }
 
-        try {
-            return DeploymentStatus.valueOf(statusStr.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            String validValues = Arrays.stream(DeploymentStatus.values())
-                    .map(Enum::name)
-                    .collect(Collectors.joining(", "));
-            throw new InvalidFilterException(
-                    String.format("Invalid status value: '%s'. Allowed values: [%s]",
-                            statusStr, validValues));
+        String trimmed = service.trim();
+        if (trimmed.isEmpty()) {
+            throw new InvalidFilterException("Service name cannot be empty");
         }
+
+        return trimmed;
     }
 }
-

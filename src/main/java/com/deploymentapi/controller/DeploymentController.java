@@ -1,19 +1,16 @@
 package com.deploymentapi.controller;
 
-import com.deploymentapi.dto.DeploymentFilter;
 import com.deploymentapi.dto.DeploymentListResponse;
 import com.deploymentapi.dto.DeploymentResponse;
 import com.deploymentapi.model.Deployment;
 import com.deploymentapi.service.DeploymentService;
-import com.deploymentapi.service.DeploymentServiceImpl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/deployments")
+@RequestMapping("/api/v1/deployments")
 public class DeploymentController {
     private final DeploymentService deploymentService;
 
@@ -26,15 +23,10 @@ public class DeploymentController {
             @RequestParam(required = false) String service,
             @RequestParam(required = false) String status) {
 
-        DeploymentFilter filter = new DeploymentFilter(
-                service,
-                DeploymentServiceImpl.parseStatus(status)
-        );
-
-        List<Deployment> deployments = deploymentService.getDeploymentsByFilter(filter);
+        List<Deployment> deployments = deploymentService.getDeploymentsByFilter(service, status);
         List<DeploymentResponse> responseList = deployments.stream()
                 .map(this::toResponse)
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(new DeploymentListResponse(responseList));
     }
@@ -56,4 +48,3 @@ public class DeploymentController {
         );
     }
 }
-

@@ -4,6 +4,7 @@ import com.deploymentapi.dto.DeploymentFilter;
 import com.deploymentapi.model.Deployment;
 import org.springframework.stereotype.Repository;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,7 +18,8 @@ public class InMemoryDeploymentRepository implements DeploymentRepository {
     @Override
     public List<Deployment> findAll() {
         return deployments.values().stream()
-                .sorted((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()))
+                .sorted(timestampDescending())
+                .map(this::copyOf)
                 .collect(Collectors.toList());
     }
 
@@ -25,31 +27,57 @@ public class InMemoryDeploymentRepository implements DeploymentRepository {
     public List<Deployment> findByFilter(DeploymentFilter filter) {
         return deployments.values().stream()
                 .filter(deployment -> matchesFilter(deployment, filter))
-                .sorted((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()))
+                .sorted(timestampDescending())
+                .map(this::copyOf)
                 .collect(Collectors.toList());
     }
 
     @Override
     public Optional<Deployment> findById(String id) {
-        return Optional.ofNullable(deployments.get(id));
+        return Optional.ofNullable(deployments.get(id)).map(this::copyOf);
     }
 
     @Override
     public Deployment save(Deployment deployment) {
-        deployments.put(deployment.getId(), deployment);
-        return deployment;
+        if (deployment == null) {
+            throw new IllegalArgumentException("Deployment cannot be null");
+        }
+        if (deployment.getId() == null || deployment.getId().isBlank()) {
+            throw new IllegalArgumentException("Deployment ID cannot be null or blank");
+        }
+
+        deployments.put(deployment.getId(), copyOf(deployment));
+        return copyOf(deployment);
     }
 
     private boolean matchesFilter(Deployment deployment, DeploymentFilter filter) {
-        if (filter.getService() != null &&
-                !deployment.getService().equalsIgnoreCase(filter.getService())) {
-            return false;
+        if (filter.service() != null) {
+            String service = deployment.getService();
+            if (service == null || !service.equalsIgnoreCase(filter.service())) {
+                return false;
+            }
         }
-        if (filter.getStatus() != null &&
-                deployment.getStatus() != filter.getStatus()) {
+        if (filter.status() != null && deployment.getStatus() != filter.status()) {
             return false;
         }
         return true;
     }
-}
 
+    private Comparator<Deployment> timestampDescending() {
+        return Comparator.comparing(
+                Deployment::getTimestamp,
+                Comparator.nullsLast(Comparator.reverseOrder())
+        );
+    }
+
+    private Deployment copyOf(Deployment deployment) {
+        return new Deployment(
+                deployment.getId(),
+                deployment.getService(),
+                deployment.getStatus(),
+                deployment.getDuration(),
+                deployment.getTimestamp(),
+                deployment.getCommitSha()
+        );
+    }
+}
