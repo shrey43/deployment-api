@@ -41,12 +41,12 @@ public class InMemoryDeploymentRepository implements DeploymentRepository {
     }
 
     private boolean matchesFilter(Deployment deployment, DeploymentFilter filter) {
-        if (filter.getService() != null &&
-                !deployment.getService().equalsIgnoreCase(filter.getService())) {
+        if (filter.service() != null &&
+                !deployment.getService().equalsIgnoreCase(filter.service())) {
             return false;
         }
-        if (filter.getStatus() != null &&
-                deployment.getStatus() != filter.getStatus()) {
+        if (filter.status() != null &&
+                deployment.getStatus() != filter.status()) {
             return false;
         }
         return true;

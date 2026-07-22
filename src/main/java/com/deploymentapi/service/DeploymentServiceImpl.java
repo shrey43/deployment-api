@@ -29,7 +29,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     public List<Deployment> getDeploymentsByFilter(DeploymentFilter filter) {
         validateFilter(filter);
 
-        if (filter.getService() == null && filter.getStatus() == null) {
+        if (filter.service() == null && filter.status() == null) {
             return repository.findAll();
         }
 
@@ -51,7 +51,7 @@ public class DeploymentServiceImpl implements DeploymentService {
             return;
         }
 
-        if (filter.getService() != null && filter.getService().trim().isEmpty()) {
+        if (filter.service() != null && filter.service().trim().isEmpty()) {
             throw new InvalidFilterException("Service name cannot be empty");
         }
     }

@@ -1,6 +1,6 @@
 # Deployment API
 
-Production-ready REST API for tracking deployment events built with Spring Boot 3 and Java 17.
+REST API for tracking deployment events built with Spring Boot and Java 17.
 
 ## Quick Start 
 
@@ -170,14 +170,6 @@ Unexpected server errors (properly logged for debugging).
 
 The application automatically seeds **35 deployment events** on startup:
 
-### Services (6)
-- `billing-api`
-- `user-service`
-- `notification-service`
-- `payment-gateway`
-- `inventory-service`
-- `api-gateway`
-
 ### Statuses (4)
 - `SUCCESS` - Deployment completed successfully
 - `FAILED` - Deployment failed
@@ -187,87 +179,62 @@ The application automatically seeds **35 deployment events** on startup:
 ### Time Range
 April 2025 - June 2025 (distributed across multiple days)
 
+### Key Design Decisions
+
+**Why In-Memory Storage?**
+- Zero setup time - runs immediately
+- Thread-safe via `ConcurrentHashMap`
+- Easy migration path to real database via interface
+
+
+**Why Enums for Status?**
+- Type-safe at compile time
+- Prevents invalid values in domain layer
+- Centralized valid values
+
+**Why Interface-Driven Design?**
+- Enables easy testing with mocks
+- Supports swapping implementations
+- Documents contracts clearly
+
 ## Project Structure
 
 ```
 deployment-api/
-├── src/
-│   ├── main/
-│   │   ├── java/com/deploymentapi/
-│   │   │   ├── DeploymentApiApplication.java    # Spring Boot entry point
-│   │   │   ├── controller/
-│   │   │   │   └── DeploymentController.java    # REST endpoints
-│   │   │   ├── service/
-│   │   │   │   ├── DeploymentService.java       # Service interface
-│   │   │   │   └── DeploymentServiceImpl.java   # Business logic
-│   │   │   ├── repository/
-│   │   │   │   ├── DeploymentRepository.java    # Repository interface
-│   │   │   │   └── InMemoryDeploymentRepository.java  # In-memory impl
-│   │   │   ├── model/
-│   │   │   │   ├── Deployment.java              # Domain model
-│   │   │   │   └── DeploymentStatus.java        # Status enum
-│   │   │   ├── dto/
-│   │   │   │   ├── DeploymentResponse.java      # API response DTO
-│   │   │   │   ├── DeploymentListResponse.java  # List wrapper DTO
-│   │   │   │   └── DeploymentFilter.java        # Filter DTO
-│   │   │   ├── exception/
-│   │   │   │   ├── GlobalExceptionHandler.java  # Centralized error handling
-│   │   │   │   ├── DeploymentNotFoundException.java
-│   │   │   │   ├── InvalidFilterException.java
-│   │   │   │   └── DeploymentApiException.java
-│   │   │   └── seed/
-│   │   │       └── DeploymentDataSeeder.java    # Data initialization
-│   │   └── resources/
-│   │       └── application.properties            # Configuration
-│   └── test/
-│       └── java/com/deploymentapi/
-│           └── DeploymentServiceTest.java        # Unit tests
-├── pom.xml                                       # Maven dependencies
-└── README.md                                     # This file
+├── pom.xml                                    # Maven configuration
+├── README.md                                  # This file
+└── src/
+    ├── main/
+    │   ├── java/com/deploymentapi/
+    │   │   ├── DeploymentApiApplication.java      # Spring Boot entry point
+    │   │   ├── controller/
+    │   │   │   └── DeploymentController.java      # REST endpoints (thin layer)
+    │   │   ├── service/
+    │   │   │   ├── DeploymentService.java         # Service interface
+    │   │   │   └── DeploymentServiceImpl.java     # Business logic + validation
+    │   │   ├── repository/
+    │   │   │   ├── DeploymentRepository.java      # Storage interface
+    │   │   │   └── InMemoryDeploymentRepository.java  # In-memory implementation
+    │   │   ├── model/
+    │   │   │   ├── Deployment.java                # Core domain entity
+    │   │   │   └── DeploymentStatus.java          # Status enum
+    │   │   ├── dto/
+    │   │   │   ├── DeploymentResponse.java        # API response object
+    │   │   │   ├── DeploymentListResponse.java    # List wrapper
+    │   │   │   └── DeploymentFilter.java          # Query filter
+    │   │   ├── exception/
+    │   │   │   ├── DeploymentApiException.java    # Base exception
+    │   │   │   ├── DeploymentNotFoundException.java   # 404 exception
+    │   │   │   ├── InvalidFilterException.java    # 400 exception
+    │   │   │   └── GlobalExceptionHandler.java    # Centralized error handling
+    │   │   └── seed/
+    │   │       └── DeploymentDataSeeder.java      # Auto-seeds 35 events
+    │   └── resources/
+    │       └── application.properties             # Server configuration
+    └── test/
+        └── java/com/deploymentapi/
+            └── DeploymentServiceTest.java         # Service layer tests
 ```
-
-## Architecture
-
-This project follows **clean architecture** principles with clear separation of concerns:
-
-### Layers
-
-1. **Controller Layer** (`controller/`)
-   - Handles HTTP requests/responses
-   - Validates input parameters
-   - Delegates to service layer
-
-2. **Service Layer** (`service/`)
-   - Contains business logic
-   - Performs validation
-   - Coordinates repository operations
-
-3. **Repository Layer** (`repository/`)
-   - Abstracts data access
-   - In-memory storage implementation
-   - Easy to swap with database implementation
-
-4. **Model Layer** (`model/`)
-   - Domain entities
-   - Business enums
-
-5. **DTO Layer** (`dto/`)
-   - API request/response objects
-   - Decouples internal models from API contracts
-
-6. **Exception Layer** (`exception/`)
-   - Custom exceptions
-   - Global exception handler
-   - HTTP status code mapping
-
-### Design Principles Applied
-
-✅ **Single Responsibility Principle** - Each class has one clear purpose  
-✅ **Dependency Inversion** - Depend on interfaces, not implementations  
-✅ **Separation of Concerns** - Clear boundaries between layers  
-✅ **Dependency Injection** - Spring manages all dependencies  
-✅ **Fail-Fast Validation** - Input validated early  
-✅ **Consistent Error Responses** - Uniform error format across API
 
 ## Development
 
@@ -318,42 +285,6 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=9090
 - **Maven** - Build and dependency management
 - **JUnit 5** - Testing framework
 - **Mockito** - Mocking framework for tests
-
-## Storage
-
-Currently uses **in-memory storage** with `ConcurrentHashMap` for thread safety.
-
-### Switching to Database
-
-To switch to a database (e.g., PostgreSQL, MySQL):
-
-1. Add Spring Data JPA dependency to `pom.xml`
-2. Create JPA entity from `Deployment` model
-3. Create JPA repository interface
-4. Update `application.properties` with database connection
-5. No changes needed in controller or service layers!
-
-## Performance
-
-- **Thread-safe** - Concurrent access supported
-- **Fast responses** - In-memory storage with O(1) lookups
-- **Efficient filtering** - Stream API for collection operations
-- **Sorted results** - Deployments returned newest first
-
-## Future Enhancements
-
-Potential improvements for production use:
-
-- [ ] Add pagination for large result sets
-- [ ] Implement sorting options (by date, duration, service)
-- [ ] Add deployment creation/update endpoints
-- [ ] Integrate with real deployment systems
-- [ ] Add authentication/authorization
-- [ ] Implement database persistence
-- [ ] Add API documentation (Swagger/OpenAPI)
-- [ ] Metrics and monitoring (Actuator)
-- [ ] Containerization (Docker)
-- [ ] CI/CD pipeline
 
 ## Troubleshooting
 
