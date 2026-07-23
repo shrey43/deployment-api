@@ -35,41 +35,41 @@ cd deployment-api
 mvn clean spring-boot:run
 ```
 
-**That's it!** The server will start on `http://localhost:8080` with 35 deployment events automatically seeded.
+**That's it!** The server will start on `http://localhost:8080` with 60 deployment events automatically seeded.
 
 ## Testing the API
 
 Once running, try these commands:
 
 ```bash
-# Get all deployments (returns 35 events)
-curl http://localhost:8080/deployments | jq
+# Get all deployments (returns 60 events)
+curl http://localhost:8080/api/v1/deployments | jq
 
 # Filter by service
-curl "http://localhost:8080/deployments?service=billing-api" | jq
+curl "http://localhost:8080/api/v1/deployments?service=billing-api" | jq
 
 # Filter by status (success, failed, in_progress, rolled_back)
-curl "http://localhost:8080/deployments?status=failed" | jq
+curl "http://localhost:8080/api/v1/deployments?status=failed" | jq
 
 # Get a specific deployment
-curl http://localhost:8080/deployments/deploy_001 | jq
+curl http://localhost:8080/api/v1/deployments/deploy_001 | jq
 
 # Test error handling (404)
-curl http://localhost:8080/deployments/unknown_id | jq
+curl http://localhost:8080/api/v1/deployments/unknown_id | jq
 
 # Test error handling (400 - invalid status)
-curl "http://localhost:8080/deployments?status=badvalue" | jq
+curl "http://localhost:8080/api/v1/deployments?status=badvalue" | jq
 ```
 
 ## API Documentation
 
 ### 1. List Deployments
 
-**Endpoint:** `GET /deployments`
+**Endpoint:** `GET /api/v1/deployments`
 
 **Query Parameters:**
 - `service` (optional) - Filter by service name (e.g., `billing-api`, `user-service`)
-- `status` (optional) - Filter by deployment status: `SUCCESS`, `FAILED`, `IN_PROGRESS`, `ROLLED_BACK`
+- `status` (optional) - Filter by deployment status: `SUCCESS`, `FAILED`, `IN_PROGRESS`, `ROLLED_BACK` (case-insensitive)
 
 **Response:** `200 OK`
 ```json
@@ -84,28 +84,28 @@ curl "http://localhost:8080/deployments?status=badvalue" | jq
       "commit_sha": "a1b2c3d"
     }
   ],
-  "count": 35
+  "count": 60
 }
 ```
 
 **Examples:**
 ```bash
 # All deployments
-GET /deployments
+GET /api/v1/deployments
 
 # Filter by service
-GET /deployments?service=billing-api
+GET /api/v1/deployments?service=billing-api
 
 # Filter by status
-GET /deployments?status=failed
+GET /api/v1/deployments?status=failed
 
 # Combine filters
-GET /deployments?service=user-service&status=success
+GET /api/v1/deployments?service=user-service&status=success
 ```
 
 ### 2. Get Deployment by ID
 
-**Endpoint:** `GET /deployments/{id}`
+**Endpoint:** `GET /api/v1/deployments/{id}`
 
 **Path Parameters:**
 - `id` (required) - Deployment ID (e.g., `deploy_001`)
@@ -129,7 +129,7 @@ GET /deployments?service=user-service&status=success
   "error": "Not Found",
   "message": "Deployment not found with id: unknown_id",
   "timestamp": "2025-04-28T14:32:00Z",
-  "path": "/deployments/unknown_id"
+  "path": "/api/v1/deployments/unknown_id"
 }
 ```
 
@@ -146,7 +146,7 @@ Invalid query parameters or malformed requests.
   "error": "Bad Request",
   "message": "Invalid status value: 'badvalue'. Allowed values: [SUCCESS, FAILED, IN_PROGRESS, ROLLED_BACK]",
   "timestamp": "2025-04-28T14:32:00Z",
-  "path": "/deployments"
+  "path": "/api/v1/deployments"
 }
 ```
 
@@ -159,16 +159,24 @@ Deployment ID does not exist.
   "error": "Not Found",
   "message": "Deployment not found with id: deploy_999",
   "timestamp": "2025-04-28T14:32:00Z",
-  "path": "/deployments/deploy_999"
+  "path": "/api/v1/deployments/deploy_999"
 }
 ```
 
 ### 500 Internal Server Error
-Unexpected server errors (properly logged for debugging).
+Unexpected server errors (logged server-side with stack traces for debugging).
 
 ## Sample Data
 
-The application automatically seeds **35 deployment events** on startup:
+The application automatically seeds **60 deployment events** on startup:
+
+### Services (6)
+- `billing-api`
+- `user-service`
+- `notification-service`
+- `payment-gateway`
+- `inventory-service`
+- `api-gateway`
 
 ### Statuses (4)
 - `SUCCESS` - Deployment completed successfully
@@ -177,7 +185,7 @@ The application automatically seeds **35 deployment events** on startup:
 - `ROLLED_BACK` - Deployment was rolled back
 
 ### Time Range
-April 2025 - June 2025 (distributed across multiple days)
+Rolling 30-day window ending at startup time (events spread roughly every 12 hours)
 
 ### Key Design Decisions
 
@@ -228,7 +236,7 @@ deployment-api/
     │   │   │   ├── InvalidFilterException.java    # 400 exception
     │   │   │   └── GlobalExceptionHandler.java    # Centralized error handling
     │   │   └── seed/
-    │   │       └── DeploymentDataSeeder.java      # Auto-seeds 35 events
+    │   │       └── DeploymentDataSeeder.java      # Auto-seeds 60 events
     │   └── resources/
     │       └── application.properties             # Server configuration
     └── test/
@@ -267,13 +275,13 @@ java -jar target/deployment-api-1.0.0.jar
 Edit `src/main/resources/application.properties`:
 
 ```properties
-server.port=9090
+server.port=8080
 ```
 
 Or pass as command-line argument:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=9090
+mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8080
 ```
 
 ## Technology Stack

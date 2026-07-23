@@ -2,12 +2,14 @@ package com.deploymentapi;
 
 import com.deploymentapi.dto.DeploymentFilter;
 import com.deploymentapi.exception.DeploymentNotFoundException;
+import com.deploymentapi.exception.InvalidDeploymentIdException;
 import com.deploymentapi.exception.InvalidFilterException;
 import com.deploymentapi.model.Deployment;
 import com.deploymentapi.model.DeploymentStatus;
 import com.deploymentapi.repository.DeploymentRepository;
 import com.deploymentapi.service.DeploymentService;
 import com.deploymentapi.service.DeploymentServiceImpl;
+import com.deploymentapi.util.DeploymentStatusParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,161 +70,90 @@ class DeploymentServiceTest {
     }
 
     @Test
-    void getAllDeployments_ShouldReturnAllDeployments() {
-        // Arrange
-        List<Deployment> expectedDeployments = Arrays.asList(testDeployment1, testDeployment2, testDeployment3);
-        when(repository.findAll()).thenReturn(expectedDeployments);
-
-        // Act
-        List<Deployment> result = service.getAllDeployments();
-
-        // Assert
-        assertEquals(3, result.size());
-        verify(repository, times(1)).findAll();
-    }
-
-    @Test
     void getDeploymentsByFilter_WithServiceFilter_ShouldReturnFilteredResults() {
-        // Arrange
-        DeploymentFilter filter = new DeploymentFilter("billing-api", null);
         List<Deployment> expectedDeployments = Arrays.asList(testDeployment1, testDeployment3);
         when(repository.findByFilter(any(DeploymentFilter.class))).thenReturn(expectedDeployments);
 
-        // Act
-        List<Deployment> result = service.getDeploymentsByFilter(filter);
+        List<Deployment> result = service.getDeploymentsByFilter("billing-api", null);
 
-        // Assert
         assertEquals(2, result.size());
         assertTrue(result.stream().allMatch(d -> d.getService().equals("billing-api")));
-        verify(repository, times(1)).findByFilter(filter);
+        verify(repository).findByFilter(new DeploymentFilter("billing-api", null));
     }
 
     @Test
     void getDeploymentsByFilter_WithStatusFilter_ShouldReturnFilteredResults() {
-        // Arrange
-        DeploymentFilter filter = new DeploymentFilter(null, DeploymentStatus.FAILED);
         List<Deployment> expectedDeployments = List.of(testDeployment2);
         when(repository.findByFilter(any(DeploymentFilter.class))).thenReturn(expectedDeployments);
 
-        // Act
-        List<Deployment> result = service.getDeploymentsByFilter(filter);
+        List<Deployment> result = service.getDeploymentsByFilter(null, "failed");
 
-        // Assert
         assertEquals(1, result.size());
         assertEquals(DeploymentStatus.FAILED, result.get(0).getStatus());
-        verify(repository, times(1)).findByFilter(filter);
+        verify(repository).findByFilter(new DeploymentFilter(null, DeploymentStatus.FAILED));
     }
 
     @Test
     void getDeploymentsByFilter_WithBothFilters_ShouldReturnFilteredResults() {
-        // Arrange
-        DeploymentFilter filter = new DeploymentFilter("billing-api", DeploymentStatus.SUCCESS);
         List<Deployment> expectedDeployments = List.of(testDeployment1);
         when(repository.findByFilter(any(DeploymentFilter.class))).thenReturn(expectedDeployments);
 
-        // Act
-        List<Deployment> result = service.getDeploymentsByFilter(filter);
+        List<Deployment> result = service.getDeploymentsByFilter("billing-api", "success");
 
-        // Assert
         assertEquals(1, result.size());
         assertEquals("billing-api", result.get(0).getService());
         assertEquals(DeploymentStatus.SUCCESS, result.get(0).getStatus());
+        verify(repository).findByFilter(new DeploymentFilter("billing-api", DeploymentStatus.SUCCESS));
     }
 
     @Test
     void getDeploymentsByFilter_WithNoFilters_ShouldReturnAllDeployments() {
-        // Arrange
-        DeploymentFilter filter = new DeploymentFilter(null, null);
         List<Deployment> expectedDeployments = Arrays.asList(testDeployment1, testDeployment2, testDeployment3);
         when(repository.findAll()).thenReturn(expectedDeployments);
 
-        // Act
-        List<Deployment> result = service.getDeploymentsByFilter(filter);
+        List<Deployment> result = service.getDeploymentsByFilter(null, null);
 
-        // Assert
         assertEquals(3, result.size());
-        verify(repository, times(1)).findAll();
+        verify(repository).findAll();
+        verify(repository, never()).findByFilter(any());
     }
 
     @Test
     void getDeploymentById_WithValidId_ShouldReturnDeployment() {
-        // Arrange
         when(repository.findById("deploy_001")).thenReturn(Optional.of(testDeployment1));
 
-        // Act
         Deployment result = service.getDeploymentById("deploy_001");
 
-        // Assert
         assertNotNull(result);
         assertEquals("deploy_001", result.getId());
         assertEquals("billing-api", result.getService());
-        verify(repository, times(1)).findById("deploy_001");
+        verify(repository).findById("deploy_001");
     }
 
     @Test
     void getDeploymentById_WithInvalidId_ShouldThrowException() {
-        // Arrange
         when(repository.findById("invalid_id")).thenReturn(Optional.empty());
 
-        // Act & Assert
-        assertThrows(DeploymentNotFoundException.class, () -> {
-            service.getDeploymentById("invalid_id");
-        });
-        verify(repository, times(1)).findById("invalid_id");
+        assertThrows(DeploymentNotFoundException.class, () -> service.getDeploymentById("invalid_id"));
+        verify(repository).findById("invalid_id");
     }
 
     @Test
     void getDeploymentById_WithNullId_ShouldThrowException() {
-        // Act & Assert
-        assertThrows(InvalidFilterException.class, () -> {
-            service.getDeploymentById(null);
-        });
+        assertThrows(InvalidDeploymentIdException.class, () -> service.getDeploymentById(null));
         verify(repository, never()).findById(any());
     }
 
     @Test
     void getDeploymentById_WithEmptyId_ShouldThrowException() {
-        // Act & Assert
-        assertThrows(InvalidFilterException.class, () -> {
-            service.getDeploymentById("   ");
-        });
+        assertThrows(InvalidDeploymentIdException.class, () -> service.getDeploymentById("   "));
         verify(repository, never()).findById(any());
     }
 
     @Test
-    void parseStatus_WithValidStatus_ShouldReturnEnum() {
-        // Act & Assert
-        assertEquals(DeploymentStatus.SUCCESS, DeploymentServiceImpl.parseStatus("success"));
-        assertEquals(DeploymentStatus.FAILED, DeploymentServiceImpl.parseStatus("FAILED"));
-        assertEquals(DeploymentStatus.IN_PROGRESS, DeploymentServiceImpl.parseStatus("in_progress"));
-        assertEquals(DeploymentStatus.ROLLED_BACK, DeploymentServiceImpl.parseStatus("RoLLeD_BaCk"));
-    }
-
-    @Test
-    void parseStatus_WithInvalidStatus_ShouldThrowException() {
-        // Act & Assert
-        InvalidFilterException exception = assertThrows(InvalidFilterException.class, () -> {
-            DeploymentServiceImpl.parseStatus("invalid_status");
-        });
-        assertTrue(exception.getMessage().contains("Invalid status value"));
-        assertTrue(exception.getMessage().contains("invalid_status"));
-    }
-
-    @Test
-    void parseStatus_WithNull_ShouldReturnNull() {
-        // Act & Assert
-        assertNull(DeploymentServiceImpl.parseStatus(null));
-    }
-
-    @Test
-    void getDeploymentsByFilter_WithEmptyServiceName_ShouldThrowException() {
-        // Arrange
-        DeploymentFilter filter = new DeploymentFilter("   ", null);
-
-        // Act & Assert
-        assertThrows(InvalidFilterException.class, () -> {
-            service.getDeploymentsByFilter(filter);
-        });
+    void getDeploymentsByFilter_WithWhitespaceOnlyServiceParam_ShouldThrowException() {
+        assertThrows(InvalidFilterException.class, () -> service.getDeploymentsByFilter("   ", null));
+        verify(repository, never()).findByFilter(any());
+        verify(repository, never()).findAll();
     }
 }
-
